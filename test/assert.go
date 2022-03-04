@@ -19,6 +19,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -137,7 +138,18 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 
 					proof, err := groth16.Prove(ccs, pk, validWitness, opt.proverOpts...)
 					checkError(err)
-
+					if curve == ecc.BN254 {
+						f, _ := os.Create("proof")
+						defer f.Close()
+						proof.WriteRawTo(f)
+						f2, _ := os.Create("vk")
+						defer f2.Close()
+						vk.WriteRawTo(f2)
+						f3, _ := os.Create("witness")
+						defer f3.Close()
+						wb, _ := validPublicWitness.MarshalBinary()
+						f3.Write(wb)
+					}
 					err = groth16.Verify(proof, vk, validPublicWitness)
 					checkError(err)
 
