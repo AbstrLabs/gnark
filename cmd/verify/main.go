@@ -88,7 +88,13 @@ func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witnes
 	}
 
 	vk_x.Add(&vk_x, &mvk.IC[0])
-	fmt.Print(vk_x)
+	fmt.Println(mp.A)
+	fmt.Println(mp.B)
+	fmt.Println(mp.C)
+	fmt.Println(w)
+	fmt.Println("---")
+	fmt.Println(vk)
+	fmt.Println(vk_x)
 
 	var na bn254.G1Affine
 	na.Neg(&mp.A)
