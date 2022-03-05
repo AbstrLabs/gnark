@@ -75,7 +75,7 @@ func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witnes
 	type Input []fr.Element
 
 	mp := Proof{A: p.Ar, B: p.Bs, C: p.Krs}
-	mvk := VK{Alpha: vk.G1.Alpha, Beta: vk.G2.Beta, Delta: vk.G2.Delta, Gamma: vk.G2.Delta, IC: vk.G1.K}
+	mvk := VK{Alpha: vk.G1.Alpha, Beta: vk.G2.Beta, Delta: vk.G2.Delta, Gamma: vk.G2.Gamma, IC: vk.G1.K}
 	input := w
 
 	var vk_x bn254.G1Affine
@@ -88,6 +88,7 @@ func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witnes
 	}
 
 	vk_x.Add(&vk_x, &mvk.IC[0])
+	fmt.Print(vk_x)
 
 	var na bn254.G1Affine
 	na.Neg(&mp.A)
