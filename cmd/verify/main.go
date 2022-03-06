@@ -88,13 +88,16 @@ func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witnes
 	}
 
 	vk_x.Add(&vk_x, &mvk.IC[0])
-	// fmt.Println(mp.A)
-	// fmt.Println(mp.B)
-	// fmt.Println(mp.C)
-	// fmt.Println(w)
+	fmt.Println(mp.A)
+	fmt.Println(mp.B)
+	fmt.Println(mp.C)
+	fmt.Println(w)
 	fmt.Println("---")
 	// fmt.Println(vk)
 	var kk big.Int
+	fmt.Println(mp.C.X.ToBigInt(&kk))
+	fmt.Println(mp.C.Y.ToBigInt(&kk))
+
 	fmt.Println(vk_x.X.ToBigInt(&kk))
 	fmt.Println(vk_x.Y.ToBigInt(&kk))
 
