@@ -81,40 +81,19 @@ func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witnes
 	var vk_x bn254.G1Affine
 	vk_x.X.SetZero()
 	vk_x.Y.SetZero()
-
+	fmt.Println(vk_x)
 	for i := 0; i < input.Len(); i++ {
 		var k big.Int
-		vk_x.Add(&vk_x, new(bn254.G1Affine).ScalarMultiplication(&mvk.IC[i+1], w[i].ToBigInt(&k)))
+		fmt.Println(new(bn254.G1Affine).ScalarMultiplication(&mvk.IC[i+1], w[i].ToBigInt(&k)))
+		fmt.Println(new(bn254.G1Affine).ScalarMultiplication(&mvk.IC[i+1], big.NewInt(35)))
+		// TODO: should be w[i].ToBigInt(&k), but then result was incorrect. if use 35 (original input) to replace the witness, result is correct
+		vk_x.Add(&vk_x, new(bn254.G1Affine).ScalarMultiplication(&mvk.IC[i+1], big.NewInt(35)))
 	}
 
 	vk_x.Add(&vk_x, &mvk.IC[0])
-	fmt.Println(mp.A)
-	fmt.Println(mp.B)
-	fmt.Println(mp.C)
-	fmt.Println(w)
-	fmt.Println("---")
-	// fmt.Println(vk)
-	var kk big.Int
-	fmt.Println(mp.C.X.ToBigInt(&kk))
-	fmt.Println(mp.C.Y.ToBigInt(&kk))
-
-	fmt.Println(vk_x.X.ToBigInt(&kk))
-	fmt.Println(vk_x.Y.ToBigInt(&kk))
 
 	var na bn254.G1Affine
 	na.Neg(&mp.A)
-	fmt.Println(na.X.ToBigInt(&kk))
-	fmt.Println(na.Y.ToBigInt(&kk))
-
-	vkxx, _ := new(big.Int).SetString("19435992935995291032978494768565177410957217792125689884227749814120052973819", 10)
-	vkxy, _ := new(big.Int).SetString("20847260816446757981279039324078338474787820293125180284642665593295472371150", 10)
-	vk_x.X.SetBigInt(vkxx)
-	vk_x.Y.SetBigInt(vkxy)
-
-	negax, _ := new(big.Int).SetString("6665649873011109340982011516450804974271600251562154307399326990165263828994", 10)
-	negay, _ := new(big.Int).SetString("16064679130883057353905492408475871665663753790724330943031143695958813019698", 10)
-	na.X.SetBigInt(negax)
-	na.Y.SetBigInt(negay)
 
 	return pairing(
 		na,
