@@ -138,6 +138,11 @@ func (t *ExportSolidityTestSuite) TestVerifyProof() {
 
 	// public witness
 	input[0] = new(big.Int).SetUint64(35)
+	fmt.Println("kkkkkkkkkkkk")
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Println(c)
+	fmt.Println(input)
 
 	// fmt.Println(proof)
 	// fmt.Println("----")
