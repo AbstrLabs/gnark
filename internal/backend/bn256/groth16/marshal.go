@@ -221,6 +221,89 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (n int64, err error) {
 	return
 }
 
+// SetFrom override vk property from the new marshal format
+func (vk *VerifyingKey) SetFrom(r io.Reader) (n int64, err error) {
+
+	// var read int
+	// var buf [8]byte
+
+	// read, err = io.ReadFull(r, buf[:])
+	// n += int64(read)
+	// if err != nil {
+	// 	return
+	// }
+	// lPublicInputs := binary.BigEndian.Uint64(buf[:])
+
+	// bPublicInputs := make([]byte, lPublicInputs)
+	// read, err = io.ReadFull(r, bPublicInputs)
+	// n += int64(read)
+	// if err != nil {
+	// 	return
+	// }
+	// err = cbor.Unmarshal(bPublicInputs, &vk.PublicInputs)
+	// if err != nil {
+	// 	return
+	// }
+
+	// read vk.e
+	// [α]1, [Kvk]1, [β]2, [δ]2, [γ]2
+	dec := curve.NewDecoder(r)
+
+	err = dec.Decode(&vk.G1.Alpha)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	var tG1Beta curve.G1Affine
+	err = dec.Decode(&tG1Beta)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	err = dec.Decode(&vk.G2.Beta)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	err = dec.Decode(&vk.G2.Gamma)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	var tG1Delta curve.G1Affine
+	err = dec.Decode(&tG1Delta)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	err = dec.Decode(&vk.G2.Delta)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	err = dec.Decode(&vk.G1.K)
+	n += dec.BytesRead()
+	if err != nil {
+		return
+	}
+
+	// recompute vk.e (e(α, β)) and  -[δ]2, -[γ]2
+	vk.e, err = curve.Pair([]curve.G1Affine{vk.G1.Alpha}, []curve.G2Affine{vk.G2.Beta})
+	if err != nil {
+		return
+	}
+	vk.G2.deltaNeg.Neg(&vk.G2.Delta)
+	vk.G2.gammaNeg.Neg(&vk.G2.Gamma)
+
+	return
+}
+
 // WriteTo writes binary encoding of the key elements to writer
 // points are compressed
 // use WriteRawTo(...) to encode the key without point compression

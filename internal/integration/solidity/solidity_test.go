@@ -87,23 +87,25 @@ func (t *ExportSolidityTestSuite) TestVerifyProof() {
 	proof, err := groth16.Prove(t.r1cs, t.pk, &witness)
 	t.NoError(err, "proving failed")
 
-	// ensure gnark (Go) code verifies it
-	err = groth16.Verify(proof, t.vk, &witness)
-	t.NoError(err, "verifying failed")
+	// // ensure gnark (Go) code verifies it
+	// err = groth16.Verify(proof, t.vk, &witness)
+	// t.NoError(err, "verifying failed")
 
 	f, _ := os.Open("proof")
 	defer f.Close()
 	var p bn256groth16.Proof
 	p.ReadFrom(f)
-	fmt.Print(p)
+	// fmt.Print(p)
 	proof = &p
-
-	// f2, _ := os.Open("vk")
-	// defer f2.Close()
-	// var vk bn256groth16.VerifyingKey
-	// vk.ReadFrom(f2)
-	// fmt.Print(vk)
-	// t.vk = &vk
+	f2, _ := os.Open("vk")
+	defer f2.Close()
+	var vk bn256groth16.VerifyingKey
+	oldVk, _ := t.vk.(*bn256groth16.VerifyingKey)
+	vk.SetFrom(f2)
+	vk.PublicInputs = oldVk.PublicInputs
+	fmt.Println(oldVk)
+	fmt.Println(vk)
+	t.vk = &vk
 
 	// f3, _ := os.Open("witness")
 	// defer f3.Close()
@@ -137,10 +139,10 @@ func (t *ExportSolidityTestSuite) TestVerifyProof() {
 	// public witness
 	input[0] = new(big.Int).SetUint64(35)
 
-	fmt.Println(proof)
-	fmt.Println("----")
-	fmt.Println(t.vk)
-	fmt.Println("----")
+	// fmt.Println(proof)
+	// fmt.Println("----")
+	// fmt.Println(t.vk)
+	// fmt.Println("----")
 
 	// call the contract
 	res, err := t.verifierContract.VerifyProof(nil, a, b, c, input)

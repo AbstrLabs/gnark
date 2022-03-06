@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/examples/cubic"
 	"github.com/consensys/gnark/frontend"
+	bn256groth16 "github.com/consensys/gnark/internal/backend/bn256/groth16"
 	"github.com/consensys/gurvy"
 )
 
@@ -44,6 +45,14 @@ func main() {
 			panic(err)
 		}
 	}
+
+	f2, _ := os.Open("vk")
+	defer f2.Close()
+	var newVk bn256groth16.VerifyingKey
+	oldVk, _ := vk.(*bn256groth16.VerifyingKey)
+	newVk.SetFrom(f2)
+	newVk.PublicInputs = oldVk.PublicInputs
+	vk = &newVk
 
 	{
 		f, err := os.Create("contract.sol")
