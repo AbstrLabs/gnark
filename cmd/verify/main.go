@@ -1,12 +1,16 @@
 package main
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	bn254 "github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	bn254groth16 "github.com/consensys/gnark/internal/backend/bn254/groth16"
 	bn254witness "github.com/consensys/gnark/internal/backend/bn254/witness"
@@ -71,6 +75,72 @@ type VK struct {
 }
 
 type Input = []fr.Element
+
+func loadField(r io.Reader) (ret fp.Element) {
+	b := make([]byte, 32)
+	r.Read(b)
+	var i big.Int
+	i.SetBytes(b)
+	ret.SetBigInt(&i)
+	return
+}
+
+func loadFr(r io.Reader) (ret fr.Element) {
+	b := make([]byte, 4)
+	r.Read(b)
+	var i big.Int
+	a := binary.BigEndian.Uint32(b)
+	a64 := uint64(a)
+	i.SetUint64(a64)
+	ret.SetBigInt(&i)
+	return
+}
+
+func loadG1(r io.Reader) (ret bn254.G1Affine) {
+	ret.X = loadField(r)
+	ret.Y = loadField(r)
+	return
+}
+
+func loadG2(r io.Reader) (ret bn254.G2Affine) {
+	ret.X.A0 = loadField(r)
+	ret.X.A1 = loadField(r)
+	ret.Y.A0 = loadField(r)
+	ret.Y.A1 = loadField(r)
+	return
+}
+
+func loadIC(r io.Reader) (ret []bn254.G1Affine) {
+	for i := 0; i < 10; i++ {
+		a := loadG1(r)
+		ret = append(ret, a)
+	}
+	return
+}
+
+func loadProof(r io.Reader) (ret Proof) {
+	ret.A = loadG1(r)
+	ret.B = loadG2(r)
+	ret.C = loadG1(r)
+	return
+}
+
+func loadVK(r io.Reader) (ret VK) {
+	ret.Alpha = loadG1(r)
+	ret.Beta = loadG2(r)
+	ret.Delta = loadG2(r)
+	ret.Gamma = loadG2(r)
+	ret.IC = loadIC(r)
+	return
+}
+
+func loadInput(r io.Reader) (ret Input) {
+	for i := 0; i < 9; i++ {
+		a := loadFr(r)
+		ret = append(ret, a)
+	}
+	return
+}
 
 // functionality same as myVerify, but use internal/backend/bn254/groth16/solidity.go
 func myVerify2(p bn254groth16.Proof, vk bn254groth16.VerifyingKey, w bn254witness.Witness) error {
@@ -230,7 +300,11 @@ func main() {
 	f, _ := os.Open("proof")
 	defer f.Close()
 	var p bn254groth16.Proof
+	fmt.Println("!!!!!!!!!!!!")
 	p.ReadFrom(f)
+	arx := p.Ar.X.Bytes()
+	fmt.Println(hex.EncodeToString(arx[:]))
+	fmt.Println(&p.Ar.X)
 
 	f2, _ := os.Open("vk")
 	defer f2.Close()
@@ -272,5 +346,24 @@ func main() {
 		panic(err)
 	} else {
 		fmt.Println("success")
+	}
+
+	fp, _ := os.Open("tls_proof2")
+	defer fp.Close()
+	p2 := loadProof(fp)
+
+	fvk, _ := os.Open("tls_vk2")
+	defer fvk.Close()
+	vk2 := loadVK(fvk)
+
+	fin, _ := os.Open("tls_primary_in2")
+	defer fin.Close()
+	in2 := loadInput(fin)
+
+	err = myVerify3(p2, vk2, in2)
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("success!!!")
 	}
 }
