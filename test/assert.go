@@ -89,8 +89,8 @@ type LibsnarkCSMetadata struct {
 	nPrimaryInput   int
 	nAuxiliaryInput int
 	nConstraints    int
-	// Number of variables in sample run file. Equals to pub + priv witness
-	nSampleRunVars int
+	// Number of secret variables in sample run file
+	nSecretInput int
 }
 
 type ConstructR1CHelper struct {
@@ -105,10 +105,12 @@ func loadLibsnarkCS(filename string) (ret cs.R1CS) {
 
 	var nPrimaryInput int
 	var nAuxiliaryInput int
+	var nSecretInput int
 	var nConstraints int
 
 	_, _ = fmt.Fscanf(f, "%d\n", &nPrimaryInput)
 	_, _ = fmt.Fscanf(f, "%d\n", &nAuxiliaryInput)
+	_, _ = fmt.Fscanf(f, "%d\n", &nSecretInput)
 	_, _ = fmt.Fscanf(f, "%d\n", &nConstraints)
 
 	fmt.Println("number of primary input: ", nPrimaryInput)
@@ -118,7 +120,7 @@ func loadLibsnarkCS(filename string) (ret cs.R1CS) {
 	helper.nPrimaryInput = nPrimaryInput
 	helper.nAuxiliaryInput = nAuxiliaryInput
 	helper.nConstraints = nConstraints
-	helper.nSampleRunVars = 4 // todo: modify libsnark file format to read from
+	helper.nSecretInput = nSecretInput
 	helper.coeffsSet = make(map[fr.Element]int)
 	_ = getCoeffID(fr.NewElement(0), helper)
 
@@ -130,7 +132,7 @@ func loadLibsnarkCS(filename string) (ret cs.R1CS) {
 	fmt.Println("***************")
 	pretty.Print(constraints)
 	ret.NbPublicVariables = helper.nPrimaryInput
-	ret.NbSecretVariables = helper.nSampleRunVars - helper.nPrimaryInput
+	ret.NbSecretVariables = helper.nSecretInput
 	ret.NbInternalVariables = helper.nAuxiliaryInput - ret.NbSecretVariables
 	ret.Levels = make([][]int, nConstraints)
 	for i := 0; i < nConstraints; i++ {
@@ -212,7 +214,7 @@ func getCoeffID(coeff fr.Element, helper *ConstructR1CHelper) int {
 func getVariableVisibility(index int, helper *ConstructR1CHelper) schema.Visibility {
 	if index < helper.nPrimaryInput {
 		return schema.Public
-	} else if index < helper.nSampleRunVars {
+	} else if index < helper.nSecretInput+helper.nPrimaryInput {
 		return schema.Secret
 	} else if index < helper.nPrimaryInput+helper.nAuxiliaryInput {
 		return schema.Internal
