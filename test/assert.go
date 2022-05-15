@@ -17,22 +17,30 @@ limitations under the License.
 package test
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/schema"
+	"github.com/consensys/gnark/internal/backend/bn254/cs"
 	"github.com/consensys/gnark/internal/backend/compiled"
 	"github.com/consensys/gnark/internal/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 var (
@@ -75,6 +83,142 @@ func (assert *Assert) Run(fn func(assert *Assert), descs ...string) {
 // Log logs using the test instance logger.
 func (assert *Assert) Log(v ...interface{}) {
 	assert.t.Log(v...)
+}
+
+type LibsnarkCSMetadata struct {
+	nPrimaryInput   int
+	nAuxiliaryInput int
+	nConstraints    int
+	// Number of variables in sample run file. Equals to pub + priv witness
+	nSampleRunVars int
+}
+
+type ConstructR1CHelper struct {
+	LibsnarkCSMetadata
+	coeffs    []fr.Element
+	coeffsSet map[fr.Element]int
+}
+
+func loadLibsnarkCS(filename string) (ret cs.R1CS) {
+	f, _ := os.Open(filename)
+	defer f.Close()
+
+	var nPrimaryInput int
+	var nAuxiliaryInput int
+	var nConstraints int
+
+	_, _ = fmt.Fscanf(f, "%d\n", &nPrimaryInput)
+	_, _ = fmt.Fscanf(f, "%d\n", &nAuxiliaryInput)
+	_, _ = fmt.Fscanf(f, "%d\n", &nConstraints)
+
+	fmt.Println("number of primary input: ", nPrimaryInput)
+	fmt.Println("number of auxiliary input: ", nAuxiliaryInput)
+	fmt.Println("number of constraints: ", nConstraints)
+	helper := &ConstructR1CHelper{}
+	helper.nPrimaryInput = nPrimaryInput
+	helper.nAuxiliaryInput = nAuxiliaryInput
+	helper.nConstraints = nConstraints
+	helper.nSampleRunVars = 4 // todo: modify libsnark file format to read from
+	helper.coeffsSet = make(map[fr.Element]int)
+	_ = getCoeffID(fr.NewElement(0), helper)
+
+	constraints := make([]compiled.R1C, nConstraints)
+	for i := 0; i < nConstraints; i++ {
+		constraints[i] = loadConstraint(f, helper)
+	}
+
+	fmt.Println("***************")
+	pretty.Print(constraints)
+	ret.NbPublicVariables = helper.nPrimaryInput
+	ret.NbSecretVariables = helper.nSampleRunVars - helper.nPrimaryInput
+	ret.NbInternalVariables = helper.nAuxiliaryInput - ret.NbSecretVariables
+	ret.Levels = make([][]int, nConstraints)
+	for i := 0; i < nConstraints; i++ {
+		ret.Levels[i] = []int{i}
+	}
+	ret.Constraints = constraints
+	ret.Coefficients = helper.coeffs
+	ret.Schema = &schema.Schema{}
+	return
+}
+
+func loadConstraint(r io.Reader, helper *ConstructR1CHelper) (ret compiled.R1C) {
+	ret.L = loadLinearCombination(r, helper)
+	ret.R = loadLinearCombination(r, helper)
+	ret.O = loadLinearCombination(r, helper)
+	return
+}
+
+func loadLinearCombination(r io.Reader, helper *ConstructR1CHelper) (ret compiled.Variable) {
+	var nTerms int
+	var index int
+	coeff := make([]byte, 32)
+	coeff2 := make([]uint64, 4)
+
+	ret.IsBoolean = new(bool)
+	*ret.IsBoolean = false
+
+	_, _ = fmt.Fscanf(r, "%d\n", &nTerms)
+	fmt.Println("=======")
+	ret.LinExp = make([]compiled.Term, nTerms-1)
+	for i := 0; i < nTerms; i++ {
+		if i == 0 {
+			_, _ = fmt.Fscanf(r, "%d\n", &index)
+			if index != 0 {
+				panic("expect index to be 0")
+			}
+			r.Read(coeff)
+			xi := new(big.Int).SetBytes(coeff)
+			if xi.Sign() != 0 {
+				panic("expect first coeff to be 0")
+			}
+		} else {
+			_, _ = fmt.Fscanf(r, "%d\n", &index)
+			r.Read(coeff)
+
+			var coeff3 fr.Element
+			for j := 0; j < 4; j++ {
+				coeff2[j] = binary.LittleEndian.Uint64(coeff[j*8 : (j+1)*8])
+				coeff3[j] = coeff2[j]
+			}
+			fmt.Println("------")
+			fmt.Println(index)
+			fmt.Println(&coeff3)
+			// libsnark x1 -> gnark x0
+			ret.LinExp[i-1] = encodeTerm(index-1, coeff3, helper)
+		}
+	}
+	return
+}
+
+func encodeTerm(index int, coeff fr.Element, helper *ConstructR1CHelper) (ret compiled.Term) {
+	ret.SetWireID(index)
+	ret.SetCoeffID(getCoeffID(coeff, helper))
+	ret.SetVariableVisibility(getVariableVisibility(index, helper))
+	return
+}
+
+func getCoeffID(coeff fr.Element, helper *ConstructR1CHelper) int {
+	index, exist := helper.coeffsSet[coeff]
+	if exist {
+		return index
+	}
+	helper.coeffs = append(helper.coeffs, coeff)
+	index = len(helper.coeffs) - 1
+	helper.coeffsSet[coeff] = index
+	return index
+}
+
+func getVariableVisibility(index int, helper *ConstructR1CHelper) schema.Visibility {
+	if index < helper.nPrimaryInput {
+		return schema.Public
+	} else if index < helper.nSampleRunVars {
+		return schema.Secret
+	} else if index < helper.nPrimaryInput+helper.nAuxiliaryInput {
+		return schema.Internal
+	} else {
+		panic("invalid variable index")
+	}
 }
 
 // ProverSucceeded fails the test if any of the following step errored:
@@ -131,14 +275,58 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 
 				switch b {
 				case backend.GROTH16:
+					cs := ccs.(*cs.R1CS)
+
+					cs.DebugInfo = []compiled.LogEntry{}
+					cs.MDebug = make(map[int]int)
+					cs.Schema = &schema.Schema{}
+					// cs.Levels = [][]int{}
+					cs.Coefficients = []fr.Element{cs.Coefficients[0], cs.Coefficients[1]}
 					pk, vk, err := groth16.Setup(ccs)
 					checkError(err)
+
+					cs2 := loadLibsnarkCS("libsnarkcs")
+					// fmt.Println("$$$$$$$$$$$$$$$$")
+					// pretty.Print(cs)
+					// fmt.Println("################")
+					// pretty.Print(cs2)
 
 					// ensure prove / verify works well with valid witnesses
 
 					proof, err := groth16.Prove(ccs, pk, validWitness, opt.proverOpts...)
 					checkError(err)
+
+					proof2, err := groth16.Prove(&cs2, pk, validWitness, opt.proverOpts...)
+					checkError(err)
+					err = groth16.Verify(proof2, vk, validPublicWitness)
+					checkError(err)
 					if curve == ecc.BN254 {
+
+						fmt.Println("Groth16 bn254")
+						pretty.Print(circuit)
+						pretty.Print(cs)
+						coeffs := cs.Coefficients
+
+						coeffs2 := make([]big.Int, len(coeffs))
+						for i := 0; i < len(coeffs); i++ {
+							fmt.Println(coeffs[i])
+							coeffs[i].ToBigInt(&coeffs2[i])
+							fmt.Println(&coeffs2[i])
+							fmt.Println(&coeffs[i])
+							coeffs[i].ToBigIntRegular(&coeffs2[i])
+						}
+						fmt.Println("constraints: ")
+						constraints := cs.Constraints
+						for i := 0; i < len(constraints); i++ {
+							pretty.Print(constraints[i].String(coeffs2))
+						}
+						fmt.Println("num of internal vars: ", cs.CS.NbInternalVariables)
+						fmt.Println("num of pub vars: ", cs.CS.NbPublicVariables)
+						fmt.Println("num of sec vars: ", cs.CS.NbSecretVariables)
+						fmt.Println("num of constraints: ", ccs.GetNbConstraints())
+
+						fmt.Println(validWitness)
+						fmt.Println(validPublicWitness)
 						f, _ := os.Create("proof")
 						defer f.Close()
 						proof.WriteRawTo(f)

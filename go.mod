@@ -6,13 +6,15 @@ require (
 	github.com/consensys/bavard v0.1.9
 	github.com/consensys/gnark-crypto v0.6.1
 	github.com/fxamacker/cbor/v2 v2.2.0
+	github.com/kr/pretty v0.2.0
+	github.com/kylelemons/godebug v1.1.0
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.7.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/kr/pretty v0.2.0 // indirect
+	github.com/kr/text v0.1.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
