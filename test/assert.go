@@ -40,6 +40,7 @@ import (
 	"github.com/consensys/gnark/internal/utils"
 	"github.com/stretchr/testify/require"
 
+	witness_bn254 "github.com/consensys/gnark/internal/backend/bn254/witness"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -284,21 +285,40 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 					cs.Schema = &schema.Schema{}
 					// cs.Levels = [][]int{}
 					cs.Coefficients = []fr.Element{cs.Coefficients[0], cs.Coefficients[1]}
-					pk, vk, err := groth16.Setup(ccs)
+					cs2 := loadLibsnarkCS("libsnarkcs")
+
+					pk, vk, err := groth16.Setup(&cs2)
 					checkError(err)
 
-					cs2 := loadLibsnarkCS("libsnarkcs")
-					// fmt.Println("$$$$$$$$$$$$$$$$")
+					fmt.Println("$$$$$$$$$$$$$$$$")
+					pretty.Print(opt.proverOpts)
+
+					pretty.Print(validWitness)
+					fmt.Println(validWitness.Vector.(*witness_bn254.Witness))
+
+					witness2 := new(witness.Witness)
+					witness2.CurveID = ecc.BN254
+					bi, _ := new(big.Int).SetString("3832573639976773850384671636306227436183276778061632734900973793065182854224", 10)
+					vector := []fr.Element{
+						*new(fr.Element).SetUint64(666),
+						*new(fr.Element).SetBigInt(bi),
+						*new(fr.Element).SetUint64(233),
+					}
+					var wn witness_bn254.Witness
+					wn = vector
+					witness2.Vector = &wn
+
 					// pretty.Print(cs)
-					// fmt.Println("################")
+					fmt.Println("################")
 					// pretty.Print(cs2)
 
 					// ensure prove / verify works well with valid witnesses
 
+					// panic("a")
 					proof, err := groth16.Prove(ccs, pk, validWitness, opt.proverOpts...)
 					checkError(err)
 
-					proof2, err := groth16.Prove(&cs2, pk, validWitness, opt.proverOpts...)
+					proof2, err := groth16.Prove(&cs2, pk, witness2, opt.proverOpts...)
 					checkError(err)
 					err = groth16.Verify(proof2, vk, validPublicWitness)
 					checkError(err)
