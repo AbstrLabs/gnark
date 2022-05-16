@@ -175,16 +175,33 @@ func myVerify3(mp Proof, mvk VK, input Input) error {
 	var vk_x bn254.G1Affine
 	vk_x.X.SetZero()
 	vk_x.Y.SetZero()
-	fmt.Println(vk_x)
+	fmt.Println("6666666666666666666")
+	fmt.Println(bN254G1ToBytes(&vk_x))
 	for i := 0; i < len(input); i++ {
 		var k big.Int
 		vk_x.Add(&vk_x, new(bn254.G1Affine).ScalarMultiplication(&mvk.IC[i+1], input[i].ToBigIntRegular(&k)))
+		fmt.Println("[][][][][][][]")
+		fmt.Println(hex.EncodeToString(vk_x.Marshal()))
+		fmt.Println(hex.EncodeToString(bN254G1ToBytes(&vk_x)))
 	}
 
 	vk_x.Add(&vk_x, &mvk.IC[0])
 
 	var na bn254.G1Affine
 	na.Neg(&mp.A)
+
+	fmt.Println("<><><><><><><><><><>")
+	fmt.Println(hex.EncodeToString(bN254G1ToBytes(&mp.A)))
+	fmt.Println(hex.EncodeToString(bN254G1ToBytes(&na)))
+	fmt.Println(hex.EncodeToString(bN254G1ToBytes(&mvk.Alpha)))
+	fmt.Println(hex.EncodeToString(bN254G1ToBytes(&vk_x)))
+	fmt.Println(hex.EncodeToString(bN254G1ToBytes(&mp.C)))
+	fmt.Println("<><><><><><><><><><>")
+	fmt.Println(hex.EncodeToString(bN254G2ToBytes(&mp.B)))
+	fmt.Println(hex.EncodeToString(mp.B.Marshal()))
+	fmt.Println(hex.EncodeToString(bN254G2ToBytes(&mvk.Beta)))
+	fmt.Println(hex.EncodeToString(bN254G2ToBytes(&mvk.Gamma)))
+	fmt.Println(hex.EncodeToString(bN254G2ToBytes(&mvk.Delta)))
 
 	return pairing(
 		na,
@@ -222,6 +239,33 @@ func g2(x0, x1, y0, y1 string) (ret bn254.G2Affine) {
 func field(x string) (ret fr.Element) {
 	i, _ := new(big.Int).SetString(x, 10)
 	ret.SetBigInt(i)
+	return
+}
+
+func bN254G1ToBytes(g1 *bn254.G1Affine) (ret []byte) {
+	retX := g1.X.Bytes()
+	retY := g1.Y.Bytes()
+	ret = append(retX[:], retY[:]...)
+	return
+}
+
+func bN254G1sToBytes(a []bn254.G1Affine) (ret []byte) {
+	for _, e := range a {
+		ret = append(ret, bN254G1ToBytes(&e)...)
+	}
+	return
+}
+
+func bN254G2ToBytes(g2 *bn254.G2Affine) (ret []byte) {
+	retXA0 := g2.X.A0.Bytes()
+	retXA1 := g2.X.A1.Bytes()
+	retYA0 := g2.Y.A0.Bytes()
+	retYA1 := g2.Y.A1.Bytes()
+
+	ret = append(retXA0[:], retXA1[:]...)
+	ret = append(ret[:], retYA0[:]...)
+	ret = append(ret[:], retYA1[:]...)
+
 	return
 }
 
@@ -345,7 +389,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("success")
+		fmt.Println("success ...")
 	}
 
 	fp, _ := os.Open("tls_proof2")
@@ -360,10 +404,31 @@ func main() {
 	defer fin.Close()
 	in2 := loadInput(fin)
 
+	// p2.A.X.Add(&p2.A.X, &p2.A.Y)
 	err = myVerify3(p2, vk2, in2)
 	if err != nil {
 		panic(err)
 	} else {
 		fmt.Println("success!!!")
 	}
+	fmt.Println(p2.A.X)
+	fmt.Println(&p2.A.X)
+	xx := p2.A.X
+	fmt.Println(xx.ToMont())
+	xxx := p2.A.X
+	fmt.Println(xx.FromMont())
+	fmt.Println(xxx.FromMont())
+	fmt.Println(xxx.ToMont())
+
+	fmt.Println(new(big.Int).SetInt64(333).Bytes())
+	fmt.Println(hex.EncodeToString(bN254G1sToBytes(vk2.IC)))
+	fin2, _ := os.Open("tls_primary_in2")
+	defer fin2.Close()
+	inb := make([]byte, 36)
+	fin2.Read(inb)
+	fmt.Println(hex.EncodeToString(inb))
+
+	var k big.Int
+	k.SetBytes([]byte{0, 0, 0, 1})
+	fmt.Println(&k)
 }
