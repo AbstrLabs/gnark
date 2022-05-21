@@ -284,7 +284,8 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 					cs.MDebug = make(map[int]int)
 					cs.Schema = &schema.Schema{}
 					// cs.Levels = [][]int{}
-					cs.Coefficients = []fr.Element{cs.Coefficients[0], cs.Coefficients[1]}
+
+					// cs.Coefficients = []fr.Element{cs.Coefficients[0], cs.Coefficients[1]}
 					cs2 := loadLibsnarkCS("libsnarkcs")
 
 					pk, vk, err := groth16.Setup(&cs2)
