@@ -19,6 +19,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/internal/backend/bn254/cs"
 	"github.com/consensys/gnark/internal/backend/compiled"
 	"github.com/consensys/gnark/internal/utils"
 	"github.com/stretchr/testify/require"
@@ -133,6 +135,17 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 				case backend.GROTH16:
 					pk, vk, err := groth16.Setup(ccs)
 					checkError(err)
+
+					cs := ccs.(*cs.R1CS)
+					coeffs2 := make([]big.Int, len(cs.Coefficients))
+					for i := 0; i < len(coeffs2); i++ {
+						cs.Coefficients[i].ToBigIntRegular(&coeffs2[i])
+					}
+					fmt.Println("constraints: ")
+					constraints := cs.Constraints
+					for i := 0; i < len(constraints); i++ {
+						fmt.Println(constraints[i].String(coeffs2))
+					}
 
 					// ensure prove / verify works well with valid witnesses
 
