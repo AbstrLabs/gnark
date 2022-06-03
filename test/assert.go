@@ -280,15 +280,15 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 				case backend.GROTH16:
 					cs := ccs.(*cs.R1CS)
 
-					cs.DebugInfo = []compiled.LogEntry{}
-					cs.MDebug = make(map[int]int)
-					cs.Schema = &schema.Schema{}
+					// cs.DebugInfo = []compiled.LogEntry{}
+					// cs.MDebug = make(map[int]int)
+					// cs.Schema = &schema.Schema{}
 					// cs.Levels = [][]int{}
 
 					// cs.Coefficients = []fr.Element{cs.Coefficients[0], cs.Coefficients[1]}
-					cs2 := loadLibsnarkCS("libsnarkcs")
+					// cs2 := loadLibsnarkCS("libsnarkcs")
 
-					pk, vk, err := groth16.Setup(&cs2)
+					pk, vk, err := groth16.Setup(cs)
 					checkError(err)
 
 					fmt.Println("$$$$$$$$$$$$$$$$")
@@ -319,18 +319,26 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 					proof, err := groth16.Prove(ccs, pk, validWitness, opt.proverOpts...)
 					checkError(err)
 
-					proof2, err := groth16.Prove(&cs2, pk, witness2, opt.proverOpts...)
+					// proof2, err := groth16.Prove(&cs2, pk, witness2, opt.proverOpts...)
 					checkError(err)
-					err = groth16.Verify(proof2, vk, validPublicWitness)
+					// err = groth16.Verify(proof2, vk, validPublicWitness)
 					checkError(err)
 					if curve == ecc.BN254 {
 
 						fmt.Println("Groth16 bn254")
 						pretty.Print(circuit)
 						pretty.Print(cs)
+						coeffs2 := make([]big.Int, len(cs.Coefficients))
+						for i := 0; i < len(coeffs2); i++ {
+							cs.Coefficients[i].ToBigIntRegular(&coeffs2[i])
+						}
+						fmt.Println("constraints: ")
+						constraints := cs.Constraints
+						for i := 0; i < len(constraints); i++ {
+							fmt.Println(constraints[i].String(coeffs2))
+						}
 						coeffs := cs.Coefficients
 
-						coeffs2 := make([]big.Int, len(coeffs))
 						for i := 0; i < len(coeffs); i++ {
 							fmt.Println(coeffs[i])
 							coeffs[i].ToBigInt(&coeffs2[i])
@@ -338,8 +346,7 @@ func (assert *Assert) ProverSucceeded(circuit frontend.Circuit, validAssignment 
 							fmt.Println(&coeffs[i])
 							coeffs[i].ToBigIntRegular(&coeffs2[i])
 						}
-						fmt.Println("constraints: ")
-						constraints := cs.Constraints
+
 						for i := 0; i < len(constraints); i++ {
 							pretty.Print(constraints[i].String(coeffs2))
 						}

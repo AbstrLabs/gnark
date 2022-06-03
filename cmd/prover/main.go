@@ -15,16 +15,32 @@ import (
 	"github.com/consensys/gnark/internal/backend/bn254/cs"
 	witness_bn254 "github.com/consensys/gnark/internal/backend/bn254/witness"
 	"github.com/consensys/gnark/internal/backend/compiled"
-	"github.com/kr/pretty"
 )
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Errorf("Usage: prover circuit input")
+	if len(os.Args) < 3 {
+		fmt.Errorf("Usage: prover circuit input [aux_input]")
 		os.Exit(1)
 	}
 
-	cs := loadLibsnarkCS(os.Args[1])
+	var cs cs.R1CS
+	if len(os.Args) < 4 {
+		cs = loadLibsnarkCS(os.Args[1], nil)
+	} else {
+		cs = loadLibsnarkCS(os.Args[1], &os.Args[3])
+	}
+
+	coeffs2 := make([]big.Int, len(cs.Coefficients))
+	for i := 0; i < len(coeffs2); i++ {
+		cs.Coefficients[i].ToBigIntRegular(&coeffs2[i])
+	}
+	constraints := cs.Constraints
+	for i := 0; i < len(constraints); i++ {
+		fmt.Println(constraints[i].String(coeffs2))
+	}
+
+	fmt.Println(constraints[0])
+
 	pk, _, err := groth16.Setup(&cs)
 	if err != nil {
 		panic(err)
@@ -50,7 +66,7 @@ type ConstructR1CHelper struct {
 	coeffsSet map[fr.Element]int
 }
 
-func loadLibsnarkCS(filename string) (ret cs.R1CS) {
+func loadLibsnarkCS(filename string, auxInputFilename *string) (ret cs.R1CS) {
 	f, _ := os.Open(filename)
 	defer f.Close()
 
@@ -88,7 +104,10 @@ func loadLibsnarkCS(filename string) (ret cs.R1CS) {
 	}
 
 	fmt.Println("***************")
-	pretty.Print(constraints[0])
+	// pretty.Print(constraints[0])
+	// for i := 0; i < len(helper.coeffs); i++ {
+	// 	fmt.Println(&helper.coeffs[i])
+	// }
 
 	ret.NbPublicVariables = helper.nPrimaryInput
 	ret.NbSecretVariables = helper.nSecretInput

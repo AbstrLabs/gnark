@@ -274,17 +274,25 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 	var termToCompute compiled.Term
 
 	processLExp := func(l compiled.LinearExpression, val *fr.Element, locValue uint8) error {
+		fmt.Printf("process %v %v\n", l, locValue)
+		fmt.Println(len(l))
 		for _, t := range l {
 			vID := t.WireID()
+			fmt.Printf("Enter: wire id: %v coeff id: %v\n", vID, t.CoeffID())
+
 
 			// wire is already computed, we just accumulate in val
 			if solution.solved[vID] {
+				fmt.Printf("Solved: wire id: %v coeff id: %v\n", vID, t.CoeffID())
 				solution.accumulateInto(t, val)
 				continue
 			}
 
+			fmt.Println("here")
+
 			// first we check if this is a hint wire
 			if hint, ok := cs.MHints[vID]; ok {
+				fmt.Printf("Hint: wire id: %v\n", vID)
 				if err := solution.solveWithHint(vID, hint); err != nil {
 					return err
 				}
@@ -293,14 +301,19 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 				continue
 			}
 
+			fmt.Println("there")
+
+
 			if loc != 0 {
-				panic("found more than one wire to instantiate")
+				panic(fmt.Sprintf("found more than one wire to instantiate %v %v %v", vID, t.CoeffID(), loc))
 			}
 			termToCompute = t
 			loc = locValue
 		}
 		return nil
 	}
+
+	fmt.Printf("Solve constraint: %v\n", r)
 
 	if err := processLExp(r.L.LinExp, a, 1); err != nil {
 		return err
@@ -313,6 +326,9 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 	if err := processLExp(r.O.LinExp, c, 3); err != nil {
 		return err
 	}
+
+	fmt.Printf("Finish processLExp of constraint: %v\n", r)
+
 
 	if loc == 0 {
 		// there is nothing to solve, may happen if we have an assertion
