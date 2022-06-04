@@ -25,21 +25,29 @@ func main() {
 	circuit.LibsnarkArithPath = os.Args[1]
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
 	fmt.Println(err)
-	_, _, _ = groth16.Setup(r1cs)
+	pk, vk, err := groth16.Setup(r1cs)
 
 	fmt.Println(circuit)
 
-	loadWitness(os.Args[2], circuit)
-	witness, _ := frontend.NewWitness(circuit, ecc.BN254)
-	fmt.Println(circuit)
+	assignment := loadAssignment(os.Args[2], circuit)
+	witness, err := frontend.NewWitness(assignment, ecc.BN254)
+	fmt.Println("66666", err)
 
 	fmt.Println(witness)
-	// publicWitness, _ := witness.Public()
-	// proof, err := groth16.Prove(r1cs, pk, witness)
-	// err = groth16.Verify(proof, vk, publicWitness)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	publicWitness, _ := witness.Public()
+	fmt.Println(publicWitness)
+
+	proof, err := groth16.Prove(r1cs, pk, witness)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(proof)
+	fmt.Println(vk)
+
+	err = groth16.Verify(proof, vk, publicWitness)
+	if err != nil {
+		panic(err)
+	}
 }
 
 type Circuit struct {
@@ -83,6 +91,10 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 		log.Fatal("File Format Does not Match, expect total n")
 	}
 
+	Vars := make([]frontend.Variable, total)
+	inputVarSet := false
+	fmt.Println("here")
+
 	for scanner.Scan() {
 		line = scanner.Text()
 
@@ -98,17 +110,25 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			circuit.NSecretInput++
 			continue
 		}
+		fmt.Println("aaa")
 
 		// when at here, all input and nizkinput are consumed
 		// circuit.P = make([]frontend.Variable, circuit.NPublicInput)
 		// circuit.S = make([]frontend.Variable, circuit.NSecretInput)
-		Vars := make([]frontend.Variable, total)
-		for i := uint(0); i < circuit.NPublicInput; i++ {
-			Vars[i] = circuit.P[i]
+		if !inputVarSet {
+			fmt.Println("bbb", circuit.NPublicInput, circuit.NSecretInput)
+			for i := uint(0); i < circuit.NPublicInput; i++ {
+				Vars[i] = circuit.P[i]
+			}
+			for i := circuit.NPublicInput; i < circuit.NPublicInput+circuit.NSecretInput; i++ {
+				Vars[i] = circuit.S[i-circuit.NPublicInput]
+			}
+			inputVarSet = true
 		}
-		for i := circuit.NPublicInput; i < circuit.NPublicInput+circuit.NSecretInput; i++ {
-			Vars[i] = circuit.S[i]
-		}
+		fmt.Println("ccc")
+
+		fmt.Println(Vars)
+		fmt.Println(line)
 
 		var t, inStr, outStr string
 		n, _ = fmt.Sscanf(line, "%s in %s out %s", &t, &inStr, &outStr)
@@ -126,8 +146,11 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			}
 
 			if t == "add" {
-				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
-			} else if t == "nul" {
+				fmt.Println(Vars[inValues[0]])
+				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]])
+				// Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
+
+			} else if t == "mul" {
 				Vars[outValues[0]] = api.Mul(Vars[inValues[0]], Vars[inValues[1]])
 			} else if strings.Contains(t, "const-mul-") {
 				constStr := t[len("const-mul-"):]
@@ -135,7 +158,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				c := new(fr.Element).SetBigInt(bi)
 				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
 			} else if t == "assert" {
-				api.AssertIsEqual(Vars[inValues[0]], Vars[inValues[1]])
+				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
 			}
 		}
 	}
@@ -145,26 +168,35 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 	}
 }
 
-func loadWitness(filename string, circuit *Circuit) {
+func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 	f, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
 
+	ret = new(Circuit)
+	ret.LibsnarkArithPath = circuit.LibsnarkArithPath
+	ret.NPublicInput = circuit.NPublicInput
+	ret.NSecretInput = circuit.NSecretInput
+
 	var id int
 	var hex string
 
 	for {
+		fmt.Printf("dddd")
 		n, _ := fmt.Fscanf(f, "%d %s\n", &id, &hex)
 
 		if n != 2 {
 			break
 		}
+		fmt.Printf("akkk")
 		bi, _ := new(big.Int).SetString(hex, 16)
 		if id < int(circuit.NPublicInput) {
-			circuit.P[id] = *new(fr.Element).SetBigInt(bi)
+			ret.P[id] = bi
+			// *new(fr.Element).SetBigInt(bi)
 		} else if id < int(circuit.NPublicInput)+int(circuit.NSecretInput) {
-			circuit.S[id-int(circuit.NPublicInput)] = *new(fr.Element).SetBigInt(bi)
+			ret.S[id-int(circuit.NPublicInput)] = bi
 		}
 	}
+	return
 }
