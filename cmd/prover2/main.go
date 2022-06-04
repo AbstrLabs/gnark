@@ -145,8 +145,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			}
 
 			if t == "add" {
-				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]])
-				// Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
+				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
 			} else if t == "mul" {
 				Vars[outValues[0]] = api.Mul(Vars[inValues[0]], Vars[inValues[1]])
 			} else if strings.Contains(t, "const-mul-") {
