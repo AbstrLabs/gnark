@@ -23,6 +23,10 @@ func main() {
 	}
 	circuit := new(Circuit)
 	circuit.LibsnarkArithPath = os.Args[1]
+	circuit.NPublicInput = 3
+	circuit.NSecretInput = 1
+	circuit.P = make([]frontend.Variable, circuit.NPublicInput)
+	circuit.S = make([]frontend.Variable, circuit.NSecretInput)
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
 	if err != nil {
 		panic(err)
@@ -46,8 +50,8 @@ func main() {
 }
 
 type Circuit struct {
-	P                 [3]frontend.Variable `gnark:",public"`
-	S                 [1]frontend.Variable
+	P                 []frontend.Variable `gnark:",public"`
+	S                 []frontend.Variable
 	LibsnarkArithPath string
 	NPublicInput      uint
 	NSecretInput      uint
@@ -96,13 +100,13 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 		var id uint
 		n, _ = fmt.Sscanf(line, "input %d", &id)
 		if n == 1 {
-			circuit.NPublicInput++
+			// circuit.NPublicInput++
 			continue
 		}
 
 		n, _ = fmt.Sscanf(line, "nizkinput %d", &id)
 		if n == 1 {
-			circuit.NSecretInput++
+			// circuit.NSecretInput++
 			continue
 		}
 
@@ -174,6 +178,8 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 	ret.LibsnarkArithPath = circuit.LibsnarkArithPath
 	ret.NPublicInput = circuit.NPublicInput
 	ret.NSecretInput = circuit.NSecretInput
+	ret.P = make([]frontend.Variable, ret.NPublicInput)
+	ret.S = make([]frontend.Variable, ret.NSecretInput)
 
 	var id int
 	var hex string
