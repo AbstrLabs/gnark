@@ -274,21 +274,21 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 	var termToCompute compiled.Term
 
 	processLExp := func(l compiled.LinearExpression, val *fr.Element, locValue uint8) error {
-		fmt.Printf("process %v %v\n", l, locValue)
-		fmt.Println(len(l))
+		// fmt.Printf("process %v %v\n", l, locValue)
+		// fmt.Println(len(l))
 		for _, t := range l {
 			vID := t.WireID()
-			fmt.Printf("Enter: wire id: %v coeff id: %v\n", vID, t.CoeffID())
+			// fmt.Printf("Enter: wire id: %v coeff id: %v\n", vID, t.CoeffID())
 
 
 			// wire is already computed, we just accumulate in val
 			if solution.solved[vID] {
-				fmt.Printf("Solved: wire id: %v coeff id: %v\n", vID, t.CoeffID())
+				// fmt.Printf("Solved: wire id: %v coeff id: %v\n", vID, t.CoeffID())
 				solution.accumulateInto(t, val)
 				continue
 			}
 
-			fmt.Println("here")
+			// fmt.Println("here")
 
 			// first we check if this is a hint wire
 			if hint, ok := cs.MHints[vID]; ok {
@@ -301,7 +301,7 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 				continue
 			}
 
-			fmt.Println("there")
+			// fmt.Println("there")
 
 
 			if loc != 0 {
@@ -313,7 +313,7 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 		return nil
 	}
 
-	fmt.Printf("Solve constraint: %v\n", r)
+	// fmt.Printf("Solve constraint: %v\n", r)
 
 	if err := processLExp(r.L.LinExp, a, 1); err != nil {
 		return err
@@ -327,7 +327,7 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 		return err
 	}
 
-	fmt.Printf("Finish processLExp of constraint: %v\n", r)
+	// fmt.Printf("Finish processLExp of constraint: %v\n", r)
 
 
 	if loc == 0 {

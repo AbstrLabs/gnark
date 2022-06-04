@@ -24,25 +24,17 @@ func main() {
 	circuit := new(Circuit)
 	circuit.LibsnarkArithPath = os.Args[1]
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
-	fmt.Println(err)
 	pk, vk, err := groth16.Setup(r1cs)
-
-	fmt.Println(circuit)
 
 	assignment := loadAssignment(os.Args[2], circuit)
 	witness, err := frontend.NewWitness(assignment, ecc.BN254)
-	fmt.Println("66666", err)
 
-	fmt.Println(witness)
 	publicWitness, _ := witness.Public()
-	fmt.Println(publicWitness)
 
 	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(proof)
-	fmt.Println(vk)
 
 	err = groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
@@ -84,16 +76,13 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 	var total uint
 	scanner.Scan()
 	line := scanner.Text()
-	fmt.Println(line)
 	n, _ := fmt.Sscanf(line, "total %d", &total)
 	if n != 1 {
-		fmt.Println(n)
 		log.Fatal("File Format Does not Match, expect total n")
 	}
 
 	Vars := make([]frontend.Variable, total)
 	inputVarSet := false
-	fmt.Println("here")
 
 	for scanner.Scan() {
 		line = scanner.Text()
@@ -110,13 +99,11 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			circuit.NSecretInput++
 			continue
 		}
-		fmt.Println("aaa")
 
 		// when at here, all input and nizkinput are consumed
 		// circuit.P = make([]frontend.Variable, circuit.NPublicInput)
 		// circuit.S = make([]frontend.Variable, circuit.NSecretInput)
 		if !inputVarSet {
-			fmt.Println("bbb", circuit.NPublicInput, circuit.NSecretInput)
 			for i := uint(0); i < circuit.NPublicInput; i++ {
 				Vars[i] = circuit.P[i]
 			}
@@ -125,10 +112,6 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			}
 			inputVarSet = true
 		}
-		fmt.Println("ccc")
-
-		fmt.Println(Vars)
-		fmt.Println(line)
 
 		var t, inStr, outStr string
 		n, _ = fmt.Sscanf(line, "%s in %s out %s", &t, &inStr, &outStr)
@@ -146,7 +129,6 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			}
 
 			if t == "add" {
-				fmt.Println(Vars[inValues[0]])
 				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]])
 				// Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
 
@@ -183,13 +165,11 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 	var hex string
 
 	for {
-		fmt.Printf("dddd")
 		n, _ := fmt.Fscanf(f, "%d %s\n", &id, &hex)
 
 		if n != 2 {
 			break
 		}
-		fmt.Printf("akkk")
 		bi, _ := new(big.Int).SetString(hex, 16)
 		if id < int(circuit.NPublicInput) {
 			ret.P[id] = bi
