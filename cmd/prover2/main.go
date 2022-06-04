@@ -24,6 +24,9 @@ func main() {
 	circuit := new(Circuit)
 	circuit.LibsnarkArithPath = os.Args[1]
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
+	if err != nil {
+		panic(err)
+	}
 	pk, vk, err := groth16.Setup(r1cs)
 
 	assignment := loadAssignment(os.Args[2], circuit)
@@ -69,7 +72,10 @@ func sliceAtoi(sa []string) ([]int, error) {
 
 func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 	filename := circuit.LibsnarkArithPath
-	f, _ := os.Open(filename)
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	scanner := bufio.NewScanner(f)
 
@@ -116,8 +122,14 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 		var t, inStr, outStr string
 		n, _ = fmt.Sscanf(line, "%s in %s out %s", &t, &inStr, &outStr)
 		if n == 3 {
-			inValues, _ := sliceAtoi(strings.Split(inStr, "_"))
-			outValues, _ := sliceAtoi(strings.Split(outStr, "_"))
+			inValues, err := sliceAtoi(strings.Split(inStr, "_"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			outValues, err := sliceAtoi(strings.Split(outStr, "_"))
+			if err != nil {
+				log.Fatal(err)
+			}
 			var in []frontend.Variable
 			if len(inValues) > 2 {
 				in = make([]frontend.Variable, len(inValues)-2)
@@ -131,12 +143,14 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			if t == "add" {
 				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]])
 				// Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
-
 			} else if t == "mul" {
 				Vars[outValues[0]] = api.Mul(Vars[inValues[0]], Vars[inValues[1]])
 			} else if strings.Contains(t, "const-mul-") {
 				constStr := t[len("const-mul-"):]
-				bi, _ := new(big.Int).SetString(constStr, 16)
+				bi, success := new(big.Int).SetString(constStr, 16)
+				if !success {
+					log.Fatal("not a valid hex number")
+				}
 				c := new(fr.Element).SetBigInt(bi)
 				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
 			} else if t == "assert" {
@@ -170,7 +184,10 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 		if n != 2 {
 			break
 		}
-		bi, _ := new(big.Int).SetString(hex, 16)
+		bi, success := new(big.Int).SetString(hex, 16)
+		if !success {
+			log.Fatal("not a valid hex number")
+		}
 		if id < int(circuit.NPublicInput) {
 			ret.P[id] = bi
 			// *new(fr.Element).SetBigInt(bi)
