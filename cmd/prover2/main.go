@@ -21,12 +21,9 @@ func main() {
 		fmt.Errorf("Usage: prover arith input")
 		os.Exit(1)
 	}
-	circuit := new(Circuit)
-	circuit.LibsnarkArithPath = os.Args[1]
-	circuit.NPublicInput = 3
-	circuit.NSecretInput = 1
-	circuit.P = make([]frontend.Variable, circuit.NPublicInput)
-	circuit.S = make([]frontend.Variable, circuit.NSecretInput)
+
+	circuit := newCircuitFromXjsnark(os.Args[1])
+
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
 	if err != nil {
 		panic(err)
@@ -50,11 +47,10 @@ func main() {
 }
 
 type Circuit struct {
-	P                 []frontend.Variable `gnark:",public"`
-	S                 []frontend.Variable
-	LibsnarkArithPath string
-	NPublicInput      uint
-	NSecretInput      uint
+	P         []frontend.Variable `gnark:",public"`
+	S         []frontend.Variable
+	Scanner   *bufio.Scanner
+	totalVars uint
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -74,57 +70,61 @@ func sliceAtoi(sa []string) ([]int, error) {
 	return si, nil
 }
 
-func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
-	filename := circuit.LibsnarkArithPath
-	f, err := os.Open(filename)
+func newCircuitFromXjsnark(xjsnarkArithPath string) (circuit *Circuit) {
+	circuit = new(Circuit)
+	f, err := os.Open(xjsnarkArithPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	scanner := bufio.NewScanner(f)
+	circuit.Scanner = scanner
 
-	var total uint
 	scanner.Scan()
 	line := scanner.Text()
-	n, _ := fmt.Sscanf(line, "total %d", &total)
+	n, _ := fmt.Sscanf(line, "total %d", &circuit.totalVars)
 	if n != 1 {
 		log.Fatal("File Format Does not Match, expect total n")
 	}
-
-	Vars := make([]frontend.Variable, total)
-	inputVarSet := false
-
+	var nPublicInput, nSecretInput uint
 	for scanner.Scan() {
 		line = scanner.Text()
 
 		var id uint
 		n, _ = fmt.Sscanf(line, "input %d", &id)
 		if n == 1 {
-			// circuit.NPublicInput++
+			nPublicInput++
 			continue
 		}
 
 		n, _ = fmt.Sscanf(line, "nizkinput %d", &id)
 		if n == 1 {
-			// circuit.NSecretInput++
+			nSecretInput++
 			continue
 		}
 
-		// when at here, all input and nizkinput are consumed
-		// circuit.P = make([]frontend.Variable, circuit.NPublicInput)
-		// circuit.S = make([]frontend.Variable, circuit.NSecretInput)
-		if !inputVarSet {
-			for i := uint(0); i < circuit.NPublicInput; i++ {
-				Vars[i] = circuit.P[i]
-			}
-			for i := circuit.NPublicInput; i < circuit.NPublicInput+circuit.NSecretInput; i++ {
-				Vars[i] = circuit.S[i-circuit.NPublicInput]
-			}
-			inputVarSet = true
-		}
+		break
+	}
 
+	circuit.P = make([]frontend.Variable, nPublicInput)
+	circuit.S = make([]frontend.Variable, nSecretInput)
+	return
+}
+
+func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
+	Vars := make([]frontend.Variable, circuit.totalVars)
+	scanner := circuit.Scanner
+
+	for i, p := range circuit.P {
+		Vars[i] = p
+	}
+	for i, s := range circuit.S {
+		Vars[i+len(circuit.P)] = s
+	}
+
+	for {
+		line := scanner.Text()
 		var t, inStr, outStr string
-		n, _ = fmt.Sscanf(line, "%s in %s out %s", &t, &inStr, &outStr)
+		n, _ := fmt.Sscanf(line, "%s in %s out %s", &t, &inStr, &outStr)
 		if n == 3 {
 			inValues, err := sliceAtoi(strings.Split(inStr, "_"))
 			if err != nil {
@@ -160,6 +160,11 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			} else if t == "assert" {
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
 			}
+		} else {
+			log.Fatal("Arith file format invalid line:", line, "expected <opcode> in <input vars> out <output vars>")
+		}
+		if !scanner.Scan() {
+			break
 		}
 	}
 
@@ -175,11 +180,8 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 	}
 
 	ret = new(Circuit)
-	ret.LibsnarkArithPath = circuit.LibsnarkArithPath
-	ret.NPublicInput = circuit.NPublicInput
-	ret.NSecretInput = circuit.NSecretInput
-	ret.P = make([]frontend.Variable, ret.NPublicInput)
-	ret.S = make([]frontend.Variable, ret.NSecretInput)
+	ret.P = make([]frontend.Variable, len(circuit.P))
+	ret.S = make([]frontend.Variable, len(circuit.S))
 
 	var id int
 	var hex string
@@ -194,11 +196,10 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 		if !success {
 			log.Fatal("not a valid hex number")
 		}
-		if id < int(circuit.NPublicInput) {
+		if id < len(ret.P) {
 			ret.P[id] = bi
-			// *new(fr.Element).SetBigInt(bi)
-		} else if id < int(circuit.NPublicInput)+int(circuit.NSecretInput) {
-			ret.S[id-int(circuit.NPublicInput)] = bi
+		} else if id < len(ret.P)+len(ret.S) {
+			ret.S[id-len(ret.P)] = bi
 		}
 	}
 	return
