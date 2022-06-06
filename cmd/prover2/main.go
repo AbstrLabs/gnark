@@ -25,25 +25,29 @@ func main() {
 	circuit := newCircuitFromXjsnark(os.Args[1])
 
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
+	log.Print("Load and compile Xjsnark arith file done")
 	if err != nil {
 		panic(err)
 	}
 	pk, vk, err := groth16.Setup(r1cs)
+	log.Print("Generate pk and vk done")
 
 	assignment := loadAssignment(os.Args[2], circuit)
 	witness, err := frontend.NewWitness(assignment, ecc.BN254)
-
 	publicWitness, _ := witness.Public()
+	log.Print("Load witness done")
 
 	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		panic(err)
 	}
+	log.Print("Prove done")
 
 	err = groth16.Verify(proof, vk, publicWitness)
 	if err != nil {
 		panic(err)
 	}
+	log.Print("Verify done")
 }
 
 type Circuit struct {
@@ -156,8 +160,32 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				}
 				c := new(fr.Element).SetBigInt(bi)
 				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
+			} else if strings.Contains(t, "const-mul-neg-") {
+				constStr := t[len("const-mul-neg-"):]
+				bi, success := new(big.Int).SetString(constStr, 16)
+				if !success {
+					log.Fatal("not a valid hex number")
+				}
+				c := new(fr.Element).SetBigInt(bi)
+				c.Neg(c)
+				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
 			} else if t == "assert" {
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
+			} else if t == "xor" {
+				Vars[outValues[0]] = api.Xor(Vars[inValues[0]], Vars[inValues[1]])
+			} else if t == "or" {
+				Vars[outValues[0]] = api.Or(Vars[inValues[0]], Vars[inValues[1]])
+			} else if t == "zerop" {
+				// note this actually means non-zerop
+				Vars[outValues[0]] = api.Sub(fr.One(), api.IsZero(Vars[inValues[0]]))
+			} else if t == "split" {
+				l := len(outValues)
+				bits := api.ToBinary(Vars[inValues[0]], l)
+				for i, e := range bits {
+					Vars[outValues[i]] = e
+				}
+			} else {
+				log.Fatal("Unknown opcode:", t)
 			}
 		} else {
 			log.Fatal("Arith file format invalid line:", line, "expected <opcode> in <input vars> out <output vars>")
