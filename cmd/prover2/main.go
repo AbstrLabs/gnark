@@ -33,7 +33,9 @@ func main() {
 	log.Print("Generate pk and vk done")
 
 	assignment := loadAssignment(os.Args[2], circuit)
+	fmt.Println(assignment)
 	witness, err := frontend.NewWitness(assignment, ecc.BN254)
+	fmt.Println(witness)
 	publicWitness, _ := witness.Public()
 	log.Print("Load witness done")
 
@@ -138,28 +140,20 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			var in []frontend.Variable
-			if len(inValues) > 2 {
-				in = make([]frontend.Variable, len(inValues)-2)
-				for i := 2; i < len(inValues); i++ {
-					in[i-2] = Vars[inValues[i]]
-				}
-			} else {
-				in = make([]frontend.Variable, 0)
-			}
 
 			if t == "add" {
+				var in []frontend.Variable
+				if len(inValues) > 2 {
+					in = make([]frontend.Variable, len(inValues)-2)
+					for i := 2; i < len(inValues); i++ {
+						in[i-2] = Vars[inValues[i]]
+					}
+				} else {
+					in = make([]frontend.Variable, 0)
+				}
 				Vars[outValues[0]] = api.Add(Vars[inValues[0]], Vars[inValues[1]], in...)
 			} else if t == "mul" {
 				Vars[outValues[0]] = api.Mul(Vars[inValues[0]], Vars[inValues[1]])
-			} else if strings.Contains(t, "const-mul-") {
-				constStr := t[len("const-mul-"):]
-				bi, success := new(big.Int).SetString(constStr, 16)
-				if !success {
-					log.Fatal("not a valid hex number")
-				}
-				c := new(fr.Element).SetBigInt(bi)
-				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
 			} else if strings.Contains(t, "const-mul-neg-") {
 				constStr := t[len("const-mul-neg-"):]
 				bi, success := new(big.Int).SetString(constStr, 16)
@@ -168,6 +162,14 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				}
 				c := new(fr.Element).SetBigInt(bi)
 				c.Neg(c)
+				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
+			} else if strings.Contains(t, "const-mul-") {
+				constStr := t[len("const-mul-"):]
+				bi, success := new(big.Int).SetString(constStr, 16)
+				if !success {
+					log.Fatal("not a valid hex number. line:", line)
+				}
+				c := new(fr.Element).SetBigInt(bi)
 				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
 			} else if t == "assert" {
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
@@ -184,6 +186,12 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				for i, e := range bits {
 					Vars[outValues[i]] = e
 				}
+			} else if t == "pack" {
+				in := make([]frontend.Variable, len(inValues))
+				for i := 0; i < len(inValues); i++ {
+					in[i] = Vars[inValues[i]]
+				}
+				Vars[outValues[0]] = api.FromBinary(in...)
 			} else {
 				log.Fatal("Unknown opcode:", t)
 			}
