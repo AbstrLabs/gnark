@@ -55,6 +55,7 @@ func main() {
 type Circuit struct {
 	P         []frontend.Variable `gnark:",public"`
 	S         []frontend.Variable
+	outputEnd uint
 	Scanner   *bufio.Scanner
 	totalVars uint
 }
@@ -105,6 +106,13 @@ func newCircuitFromXjsnark(xjsnarkArithPath string) (circuit *Circuit) {
 		n, _ = fmt.Sscanf(line, "nizkinput %d", &id)
 		if n == 1 {
 			nSecretInput++
+			continue
+		}
+
+		// gnark does not support output, we record the ids and just log them in the end
+		n, _ = fmt.Sscanf(line, "output %d", &id)
+		if n == 1 {
+			circuit.outputEnd = id
 			continue
 		}
 
@@ -201,6 +209,13 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 		if !scanner.Scan() {
 			break
 		}
+		if circuit.outputEnd != 0 {
+			outputStart := len(circuit.P) + len(circuit.S)
+			for i := outputStart; i <= int(circuit.outputEnd); i++ {
+				// TODO: this doesn't work. for now we have to ignore output.
+				// api.Println(Vars[i])
+			}
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -215,6 +230,7 @@ func loadAssignment(filename string, circuit *Circuit) (ret *Circuit) {
 	}
 
 	ret = new(Circuit)
+	ret.outputEnd = circuit.outputEnd
 	ret.P = make([]frontend.Variable, len(circuit.P))
 	ret.S = make([]frontend.Variable, len(circuit.S))
 
