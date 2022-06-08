@@ -14,6 +14,7 @@ import (
 	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/internal/backend/bn254/cs"
 )
 
 func main() {
@@ -25,17 +26,33 @@ func main() {
 	circuit := newCircuitFromXjsnark(os.Args[1])
 
 	r1cs, err := frontend.Compile(ecc.BN254, backend.GROTH16, circuit)
+	cs := r1cs.(*cs.R1CS)
 	log.Print("Load and compile Xjsnark arith file done")
+	// pretty.Print(cs.Levels)
+	// cs.Levels = make([][]int, 1511)
+	// for i := 0; i < 1511; i++ {
+	// 	cs.Levels[i] = []int{i}
+	// }
+	coeffs := make([]big.Int, len(cs.Coefficients))
+	for i := 0; i < len(coeffs); i++ {
+		cs.Coefficients[i].ToBigIntRegular(&coeffs[i])
+	}
+	fmt.Println("constraints: ")
+	constraints := cs.Constraints
+	for i := 0; i < 2; i++ {
+		fmt.Println(constraints[i].String(coeffs))
+	}
 	if err != nil {
 		panic(err)
 	}
+
 	pk, vk, err := groth16.Setup(r1cs)
 	log.Print("Generate pk and vk done")
 
 	assignment := loadAssignment(os.Args[2], circuit)
-	fmt.Println(assignment)
+	// fmt.Println(assignment)
 	witness, err := frontend.NewWitness(assignment, ecc.BN254)
-	fmt.Println(witness)
+	// fmt.Println(witness)
 	publicWitness, _ := witness.Public()
 	log.Print("Load witness done")
 
@@ -169,16 +186,23 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 					log.Fatal("not a valid hex number")
 				}
 				c := new(fr.Element).SetBigInt(bi)
-				c.Neg(c)
-				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
+				// d := new(fr.Element).Neg(c)
+				// fmt.Println(bi)
+				// fmt.Println(d)
+				Vars[outValues[0]] = api.Mul(api.Neg(frontend.Variable(c)), Vars[inValues[0]])
 			} else if strings.Contains(t, "const-mul-") {
 				constStr := t[len("const-mul-"):]
+				// if constStr == "0" {
+				// 	fmt.Println("const-mul-0", outValues[0])
+				// 	Vars[outValues[0]] = fr.NewElement(0)
+				// } else {
 				bi, success := new(big.Int).SetString(constStr, 16)
 				if !success {
 					log.Fatal("not a valid hex number. line:", line)
 				}
 				c := new(fr.Element).SetBigInt(bi)
 				Vars[outValues[0]] = api.Mul(frontend.Variable(c), Vars[inValues[0]])
+				// }
 			} else if t == "assert" {
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
 			} else if t == "xor" {
@@ -216,6 +240,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				// api.Println(Vars[i])
 			}
 		}
+		// api.AssertIsEqual(Vars[0], fr.One())
 	}
 
 	if err := scanner.Err(); err != nil {
