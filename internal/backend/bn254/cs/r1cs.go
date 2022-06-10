@@ -136,16 +136,17 @@ func (cs *R1CS) parallelSolve(a, b, c []fr.Element, solution *solution) error {
 					// for each constraint in the task, solve it.
 					if err := cs.solveConstraint(cs.Constraints[i], solution, &a[i], &b[i], &c[i]); err != nil {
 						if err == errUnsatisfiedConstraint {
-							if dID, ok := cs.MDebug[int(i)]; ok {
-								err = errors.New(solution.logValue(cs.DebugInfo[dID]))
-							} else {
-								err = fmt.Errorf("%s ⋅ %s != %s", a[i].String(), b[i].String(), c[i].String())
-							}
+						// if dID, ok := cs.MDebug[int(i)]; ok {
+							// err = errors.New(solution.logValue(cs.DebugInfo[dID]))
+						// } else {
+							err = fmt.Errorf("%s ⋅ %s != %s", a[i].String(), b[i].String(), c[i].String())
+						// }
 						}
-						chError <- fmt.Errorf("constraint #%d is not satisfied: %w", i, err)
+						chError <- fmt.Errorf("e constraint #%d is not satisfied: %w", i, err)
 						wg.Done()
 						return
 					}
+					fmt.Println("Constraint ", i, " satified")
 				}
 				wg.Done()
 			}
@@ -169,13 +170,13 @@ func (cs *R1CS) parallelSolve(a, b, c []fr.Element, solution *solution) error {
 			for _, i := range level {
 				if err := cs.solveConstraint(cs.Constraints[i], solution, &a[i], &b[i], &c[i]); err != nil {
 					if err == errUnsatisfiedConstraint {
-						if dID, ok := cs.MDebug[int(i)]; ok {
-							err = errors.New(solution.logValue(cs.DebugInfo[dID]))
-						} else {
+						// if dID, ok := cs.MDebug[int(i)]; ok {
+							// err = errors.New(solution.logValue(cs.DebugInfo[dID]))
+						// } else {
 							err = fmt.Errorf("%s ⋅ %s != %s", a[i].String(), b[i].String(), c[i].String())
-						}
+						// }
 					}
-					return fmt.Errorf("constraint #%d is not satisfied: %w", i, err)
+					return fmt.Errorf("f constraint #%d is not satisfied: %w", i, err)
 				}
 			}
 			continue
@@ -292,7 +293,7 @@ func (cs *R1CS) solveConstraint(r compiled.R1C, solution *solution, a, b, c *fr.
 
 			// first we check if this is a hint wire
 			if hint, ok := cs.MHints[vID]; ok {
-				fmt.Printf("Hint: wire id: %v\n", vID)
+				// fmt.Printf("Hint: wire id: %v\n", vID)
 				if err := solution.solveWithHint(vID, hint); err != nil {
 					return err
 				}

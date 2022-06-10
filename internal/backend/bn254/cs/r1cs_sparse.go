@@ -141,7 +141,7 @@ func (cs *SparseR1CS) parallelSolve(solution *solution, coefficientsNegInv []fr.
 				for _, i := range t {
 					// for each constraint in the task, solve it.
 					if err := cs.solveConstraint(cs.Constraints[i], solution, coefficientsNegInv); err != nil {
-						chError <- fmt.Errorf("constraint #%d is not satisfied: %w", i, err)
+						chError <- fmt.Errorf("a constraint #%d is not satisfied: %w", i, err)
 						wg.Done()
 						return
 					}
@@ -150,7 +150,7 @@ func (cs *SparseR1CS) parallelSolve(solution *solution, coefficientsNegInv []fr.
 						if dID, ok := cs.MDebug[i]; ok {
 							errMsg = solution.logValue(cs.DebugInfo[dID])
 						}
-						chError <- fmt.Errorf("constraint #%d is not satisfied: %s", i, errMsg)
+						chError <- fmt.Errorf("b constraint #%d is not satisfied: %s", i, errMsg)
 						wg.Done()
 						return
 					}
@@ -176,14 +176,14 @@ func (cs *SparseR1CS) parallelSolve(solution *solution, coefficientsNegInv []fr.
 			// we do it sequentially
 			for _, i := range level {
 				if err := cs.solveConstraint(cs.Constraints[i], solution, coefficientsNegInv); err != nil {
-					return fmt.Errorf("constraint #%d is not satisfied: %w", i, err)
+					return fmt.Errorf("c constraint #%d is not satisfied: %w", i, err)
 				}
 				if err := cs.checkConstraint(cs.Constraints[i], solution); err != nil {
 					errMsg := err.Error()
 					if dID, ok := cs.MDebug[i]; ok {
 						errMsg = solution.logValue(cs.DebugInfo[dID])
 					}
-					return fmt.Errorf("constraint #%d is not satisfied: %s", i, errMsg)
+					return fmt.Errorf("d constraint #%d is not satisfied: %s", i, errMsg)
 				}
 			}
 			continue
