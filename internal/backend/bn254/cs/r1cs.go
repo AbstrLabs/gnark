@@ -146,7 +146,7 @@ func (cs *R1CS) parallelSolve(a, b, c []fr.Element, solution *solution) error {
 						wg.Done()
 						return
 					}
-					fmt.Println("Constraint ", i, " satified")
+					// fmt.Println("Constraint ", i, " satified")
 				}
 				wg.Done()
 			}
