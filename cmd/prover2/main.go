@@ -22,8 +22,8 @@ func main() {
 		fmt.Errorf("Usage: prover arith input")
 		os.Exit(1)
 	}
-	parseAndEvalXjsnark(os.Args[1], os.Args[2])
-	os.Exit(0)
+	// parseAndEvalXjsnark(os.Args[1], os.Args[2])
+	// os.Exit(0)
 
 	circuit := newCircuitFromXjsnark(os.Args[1])
 
@@ -387,11 +387,11 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				if !success {
 					log.Fatal("not a valid hex number")
 				}
-				c := new(fr.Element).SetBigInt(bi)
+				// c := new(fr.Element).SetBigInt(bi)
 				// d := new(fr.Element).Neg(c)
 				// fmt.Println(bi)
 				// fmt.Println(d)
-				Vars[outValues[0]] = api.Mul(api.Neg(frontend.Variable(c)), Vars[inValues[0]])
+				Vars[outValues[0]] = api.Mul(api.Neg(bi), Vars[inValues[0]])
 			} else if strings.Contains(t, "const-mul-") {
 				constStr := t[len("const-mul-"):]
 				// if constStr == "0" {
@@ -402,8 +402,8 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				if !success {
 					log.Fatal("not a valid hex number. line:", line)
 				}
-				c := new(fr.Element).SetBigInt(bi)
-				Vars[outValues[0]] = api.Mul(api.ConstantValue(frontend.Variable(c)), Vars[inValues[0]])
+				// c := new(fr.Element).SetBigInt(bi)
+				Vars[outValues[0]] = api.Mul(api.ConstantValue(bi), Vars[inValues[0]])
 				// }
 			} else if t == "assert" {
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
@@ -413,7 +413,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				Vars[outValues[0]] = api.Or(Vars[inValues[0]], Vars[inValues[1]])
 			} else if t == "zerop" {
 				// note this actually means non-zerop
-				Vars[outValues[0]] = api.Sub(fr.One(), api.IsZero(Vars[inValues[0]]))
+				Vars[outValues[0]] = api.Sub(big.NewInt(1), api.IsZero(Vars[inValues[0]]))
 			} else if t == "split" {
 				l := len(outValues)
 				bits := api.ToBinary(Vars[inValues[0]], l)
@@ -429,21 +429,28 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			} else {
 				log.Fatal("Unknown opcode:", t)
 			}
+			for _, e := range outValues {
+				api.Println(e, Vars[e])
+			}
 		} else {
 			log.Fatal("Arith file format invalid line:", line, "expected <opcode> in <input vars> out <output vars>")
 		}
 		if !scanner.Scan() {
 			break
 		}
-		if circuit.outputEnd != 0 {
-			outputStart := len(circuit.P) + len(circuit.S)
-			for i := outputStart; i <= int(circuit.outputEnd); i++ {
-				// TODO: this doesn't work. for now we have to ignore output.
-				// api.Println(Vars[i])
-			}
-		}
-		// api.AssertIsEqual(Vars[0], fr.One())
 	}
+
+	if circuit.outputEnd != 0 {
+		outputStart := len(circuit.P) + len(circuit.S)
+		for i := outputStart; i <= int(circuit.outputEnd); i++ {
+			// TODO: this doesn't work. for now we have to ignore output.
+			// api.Println(Vars[i])
+		}
+	}
+
+	// for i := 0; i < int(circuit.totalVars); i++ {
+	// 	api.Println(i, Vars[i])
+	// }
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
