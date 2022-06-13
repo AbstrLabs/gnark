@@ -22,6 +22,7 @@ func main() {
 	}
 	// parseAndEvalXjsnark(os.Args[1], os.Args[2])
 	// os.Exit(0)
+	log.Print("Start Loading and compiling Xjsnark arith file")
 
 	circuit := newCircuitFromXjsnark(os.Args[1])
 
