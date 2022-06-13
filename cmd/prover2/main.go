@@ -215,7 +215,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 	if circuit.outputEnd != 0 {
 		outputStart := len(circuit.P) + len(circuit.S)
 		for i := outputStart; i <= int(circuit.outputEnd); i++ {
-			api.Println(Vars[i])
+			api.Println("Output", i, "=", Vars[i])
 		}
 	}
 
