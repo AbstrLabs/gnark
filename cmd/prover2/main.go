@@ -430,12 +430,16 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				Vars[outValues[0]] = api.Or(Vars[inValues[0]], Vars[inValues[1]])
 			} else if t == "zerop" {
 				// note this actually means non-zerop
-				Vars[outValues[0]] = api.Sub(big.NewInt(1), api.IsZero(Vars[inValues[0]]))
+				Vars[outValues[1]] = api.Sub(big.NewInt(1), api.IsZero(Vars[inValues[0]]))
 			} else if t == "split" {
 				l := len(outValues)
-				bits := api.ToBinary(Vars[inValues[0]], l)
-				for i, e := range bits {
-					Vars[outValues[i]] = e
+				if l == 1 {
+					Vars[outValues[0]] = Vars[inValues[0]]
+				} else {
+					bits := api.ToBinary(Vars[inValues[0]], l)
+					for i, e := range bits {
+						Vars[outValues[i]] = e
+					}
 				}
 			} else if t == "pack" {
 				in := make([]frontend.Variable, len(inValues))
