@@ -422,6 +422,7 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 				Vars[outValues[0]] = api.Mul(api.ConstantValue(bi), Vars[inValues[0]])
 				// }
 			} else if t == "assert" {
+				api.Println("Assert", "wire", inValues[0], "* wire", inValues[1], "= wire", outValues[0])
 				api.AssertIsEqual(api.Mul(Vars[inValues[0]], Vars[inValues[1]]), Vars[outValues[0]])
 			} else if t == "xor" {
 				Vars[outValues[0]] = api.Xor(api.IsZero(Vars[inValues[0]]), api.IsZero(Vars[inValues[1]]))
@@ -450,8 +451,12 @@ func parseLibsnarkArith(circuit *Circuit, api frontend.API) {
 			} else {
 				log.Fatal("Unknown opcode:", t)
 			}
-			for _, e := range outValues {
-				api.Println(e, Vars[e])
+			if t != "zerop" {
+				for _, e := range outValues {
+					api.Println(e, Vars[e])
+				}
+			} else {
+				api.Println(outValues[1], Vars[outValues[1]])
 			}
 		} else {
 			// log.Fatal("Arith file format invalid line:", line, "expected <opcode> in <input vars> out <output vars>")
