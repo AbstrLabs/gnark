@@ -464,6 +464,10 @@ func (cs *R1CS) FrSize() int {
 
 // WriteTo encodes R1CS into provided io.Writer using cbor
 func (cs *R1CS) WriteTo(w io.Writer) (int64, error) {
+	return writeToCbor(cs, w)
+}
+
+func writeToCbor(cs *R1CS, w io.Writer) (int64, error) {
 	_w := ioutils.WriterCounter{W: w} // wraps writer to count the bytes written
 	enc, err := cbor.CoreDetEncOptions().EncMode()
 	if err != nil {
@@ -472,12 +476,65 @@ func (cs *R1CS) WriteTo(w io.Writer) (int64, error) {
 	encoder := enc.NewEncoder(&_w)
 
 	// encode our object
-	err = encoder.Encode(cs)
+	err = encoder.Encode(cs.ConstraintSystem.Schema)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.NbInternalVariables)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.NbPublicVariables)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.NbSecretVariables)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.Public)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.Secret)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.Logs)
+	if err != nil {
+		return _w.N, err
+	}
+	m2 := cs.ConstraintSystem.MHints.ToMap2()
+	err = encoder.Encode(m2)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.MHintsDependencies)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.Levels)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.ConstraintSystem.CurveID)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.R1CS.Constraints)
+	if err != nil {
+		return _w.N, err
+	}
+	err = encoder.Encode(cs.Coefficients)
 	return _w.N, err
 }
 
 // ReadFrom attempts to decode R1CS from io.Reader using cbor
 func (cs *R1CS) ReadFrom(r io.Reader) (int64, error) {
+	return readFromCbor(cs, r)
+}
+
+func readFromCbor(cs *R1CS, r io.Reader) (int64, error) {
 	dm, err := cbor.DecOptions{
 		MaxArrayElements: 134217728,
 		MaxMapPairs:      134217728,
@@ -487,9 +544,57 @@ func (cs *R1CS) ReadFrom(r io.Reader) (int64, error) {
 		return 0, err
 	}
 	decoder := dm.NewDecoder(r)
-	if err := decoder.Decode(&cs); err != nil {
-		return int64(decoder.NumBytesRead()), err
+	err = decoder.Decode(&cs.ConstraintSystem.Schema)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
 	}
+	err = decoder.Decode(&cs.ConstraintSystem.NbInternalVariables)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.NbPublicVariables)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.NbSecretVariables)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.Public)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.Secret)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.Logs)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	var m2 compiled.HintsMap2
+	err = decoder.Decode(&m2)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	cs.ConstraintSystem.MHints.FromMap2(m2)
+	err = decoder.Decode(&cs.ConstraintSystem.MHintsDependencies)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.Levels)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.ConstraintSystem.CurveID)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.R1CS.Constraints)
+	if err != nil {
+		return int64(decoder.NumBytesRead()), nil
+	}
+	err = decoder.Decode(&cs.Coefficients)
 
 	return int64(decoder.NumBytesRead()), nil
 }

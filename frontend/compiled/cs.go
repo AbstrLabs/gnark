@@ -3,6 +3,7 @@ package compiled
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend"
@@ -11,6 +12,48 @@ import (
 	"github.com/consensys/gnark/frontend/schema"
 	"github.com/consensys/gnark/internal/utils"
 )
+
+type Hint2 struct {
+	ID     uint32
+	Inputs [][]uint64
+	Wires  []int
+}
+
+type HintsMap map[int]*Hint
+
+type HintsMap2 map[int]*Hint2
+
+func (m HintsMap) ToMap2() HintsMap2 {
+	var m2 HintsMap2
+	m2 = make(map[int]*Hint2, len(m))
+	for k, v := range m {
+		var v2 Hint2
+		v2.ID = uint32(v.ID)
+		v2.Inputs = make([][]uint64, len(v.Inputs))
+		for i, e := range v.Inputs {
+			x := e.(LinearExpression)
+			v2.Inputs[i] = *(*[]uint64)(unsafe.Pointer(&x))
+		}
+		v2.Wires = v.Wires
+		m2[k] = &v2
+
+	}
+	return m2
+}
+
+func (m *HintsMap) FromMap2(m2 HintsMap2) {
+	*m = make(map[int]*Hint, len(m2))
+	for k, v2 := range m2 {
+		var v Hint
+		v.ID = hint.ID(v2.ID)
+		v.Inputs = make([]interface{}, len(v2.Inputs))
+		for i, e := range v2.Inputs {
+			v.Inputs[i] = *(*LinearExpression)(unsafe.Pointer(&e))
+		}
+		v.Wires = v2.Wires
+		(*m)[k] = &v
+	}
+}
 
 // ConstraintSystem contains common element between R1CS and ConstraintSystem
 type ConstraintSystem struct {
@@ -39,7 +82,7 @@ type ConstraintSystem struct {
 
 	Counters []Counter // TODO @gbotrel no point in serializing these
 
-	MHints             map[int]*Hint      // maps wireID to hint
+	MHints             HintsMap           // maps wireID to hint
 	MHintsDependencies map[hint.ID]string // maps hintID to hint string identifier
 
 	// each level contains independent constraints and can be parallelized
